@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simulasi Bengkel</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <h1>Simulasi Bengkel</h1>
+      <p>Pemodelan dan Simulasi, Modul 5 (TA-05). Simulasi kejadian diskrit dengan Event Calendar manual; flowchart dibuat otomatis oleh backend Flask dari parameter dan hasil simulasi.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card" aria-labelledby="h-param">
+      <h2 id="h-param">Parameter</h2>
+      <form id="form" novalidate>
+        <div class="grid">
+          <label>Jumlah mobil
+            <input type="number" name="jumlah_mobil" min="1" max="500" step="1" value="{{ param.jumlah_mobil }}">
+          </label>
+          <label>Jumlah montir
+            <input type="number" name="jumlah_montir" min="1" max="10" step="1" value="{{ param.jumlah_montir }}">
+          </label>
+          <label>Rata-rata antar-kedatangan (menit)
+            <input type="number" name="mean_iat" min="0.1" step="any" value="{{ param.mean_iat }}">
+          </label>
+          <label>Seed
+            <input type="number" name="seed" min="0" step="1" value="{{ param.seed }}">
+          </label>
+
+          <fieldset>
+            <legend>Pendaftaran ~ Uniform (menit)</legend>
+            <label>Min <input type="number" name="daftar_min" min="0" step="any" value="{{ param.daftar_min }}"></label>
+            <label>Maks <input type="number" name="daftar_max" min="0" step="any" value="{{ param.daftar_max }}"></label>
+          </fieldset>
+          <fieldset>
+            <legend>Perbaikan ~ Normal (menit)</legend>
+            <label>Rata-rata <input type="number" name="repair_mean" min="0.1" step="any" value="{{ param.repair_mean }}"></label>
+            <label>Simpangan baku <input type="number" name="repair_std" min="0" step="any" value="{{ param.repair_std }}"></label>
+            <label>Minimum <input type="number" name="repair_min" min="0" step="any" value="{{ param.repair_min }}"></label>
+          </fieldset>
+          <fieldset>
+            <legend>Pembayaran ~ Uniform (menit)</legend>
+            <label>Min <input type="number" name="bayar_min" min="0" step="any" value="{{ param.bayar_min }}"></label>
+            <label>Maks <input type="number" name="bayar_max" min="0" step="any" value="{{ param.bayar_max }}"></label>
+          </fieldset>
+          <fieldset>
+            <legend>Opsi</legend>
+            <label class="check">
+              <input type="checkbox" name="prioritas_bayar" {% if param.prioritas_bayar %}checked{% endif %}>
+              Pembayaran didahulukan dari pendaftaran
+            </label>
+            <label>Jumlah replikasi (1 sampai 50)
+              <input type="number" name="replikasi" min="1" max="50" step="1" value="{{ param.replikasi }}">
+            </label>
+          </fieldset>
+        </div>
+
+        <div class="actions">
+          <button type="submit" id="btn-run">Jalankan simulasi</button>
+          <button type="button" id="btn-reset" class="ghost">Kembalikan ke bawaan</button>
+          <span id="status" role="status" aria-live="polite"></span>
+        </div>
+        <ul id="errors" class="errors" role="alert" hidden></ul>
+      </form>
+    </section>
+
+    <div id="hasil" hidden>
+      <section class="card" aria-labelledby="h-stat">
+        <h2 id="h-stat">Ringkasan hasil</h2>
+        <div id="kartu" class="kartu"></div>
+        <details>
+          <summary>Semua statistik</summary>
+          <table id="tabel-stat"><thead><tr><th>Ukuran kinerja</th><th class="num">Nilai</th></tr></thead><tbody></tbody></table>
+        </details>
+      </section>
+
+      <section class="card" aria-labelledby="h-fc">
+        <div class="judul-baris">
+          <h2 id="h-fc">Flowchart (dibuat backend)</h2>
+          <a id="unduh-svg" class="tombol" download="flowchart_bengkel.svg" href="#">Unduh SVG</a>
+        </div>
+        <div id="flowchart" class="flowchart"></div>
+      </section>
+
+      <section class="card" id="sec-rep" aria-labelledby="h-rep" hidden>
+        <h2 id="h-rep">Replikasi</h2>
+        <p id="ket-rep" class="muted"></p>
+        <div class="scroll">
+          <table id="tabel-rep"><thead></thead><tbody></tbody></table>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="h-trace">
+        <div class="judul-baris">
+          <h2 id="h-trace">Jejak simulasi (trace)</h2>
+          <label class="inline">Tampilkan
+            <select id="filter">
+              <option value="">Semua event</option>
+              <option value="ARRIVAL">ARRIVAL</option>
+              <option value="REG_END">REG_END</option>
+              <option value="REPAIR_END">REPAIR_END</option>
+              <option value="PAY_END">PAY_END</option>
+            </select>
+          </label>
+        </div>
+        <p id="ket-trace" class="muted"></p>
+        <div class="scroll tinggi">
+          <table id="tabel-trace">
+            <thead><tr>
+              <th class="num">Clock</th><th>Event</th><th class="num">Mobil</th>
+              <th class="num">Q. daftar</th><th class="num">R. tunggu</th><th class="num">Q. bayar</th>
+              <th class="num">Montir bebas</th><th>Resepsionis</th><th>Keterangan</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="wrap pie">Backend Flask &middot; mesin simulasi: Event Calendar berbasis list Python (Modul 5)</footer>
+
+  <script id="param-default" type="application/json">{{ param | tojson }}</script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
